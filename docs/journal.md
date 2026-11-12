@@ -48,3 +48,30 @@
   * *La plus fiable :* les **contrôles automatiques côté serveur (CI obligatoire + Push Protection)**, impossibles à contourner par un développeur.
 * **Q2 — `pre-commit` protège-t-il un collègue qui ne l'a pas installé ? Que faut-il ajouter ?** **Non**, c'est un contrôle purement local contournable (`--no-verify` ou hook non installé). Il faut ajouter un **job `gitleaks` dans le pipeline CI** en tant que contrôle requis avant fusion.
 * **Q3 — Combien de temps un secret reste-t-il privé sur un dépôt public ? Quels jetons GitHub révoque-t-il ?** **Quelques secondes** (bots scannant l'API publique GitHub en continu). **GitHub Secret Scanning** révoque automatiquement les jetons **GitHub** (`ghp_`, `github_pat_`, OAuth) et ceux de ses partenaires (AWS, GCP, Azure, Slack, Stripe, npm, PyPI, OpenAI, etc.).
+
+## TP 03 — Premier pipeline d'intégration continue
+
+### 1. Mesures du pipeline et cache `pip`
+* **Référence (avant matrice, sans cache, Python 3.13) :** `53s`
+* **Avec matrice `["3.12", "3.13"]` et `cache: "pip"` :**
+  * **1re exécution (`cache miss`, run `43226469105`) :** `test (py3.12)` en **49s**, `test (py3.13)` en **49s** (total : `53s` en parallèle).
+  * **2e exécution (`cache hit` — `Cache restored`, rerun `43226469105`) :** `test (py3.12)` en **1m01s**, `test (py3.13)` en **1m00s**.
+  * **Analyse :** le cache `pip` est restauré en ~1s (clé calculée sur `pyproject.toml` + OS + version Python), mais la majorité du temps (~35–40s) provient de l'installation des environnements isolés `pre-commit` (`ruff`, `gitleaks`), qui ne sont pas mis en cache par `setup-python`.
+* **Checks requis dans le ruleset (`27099639`) :** `test (py3.12)` et `test (py3.13)` (PR #13 bloquée sur échec `test_version_header`, puis débloquée par commit correctif).
+
+### 2. Exécution locale avec `act`
+* **Configuration :** `~/.actrc` avec l'image Medium `catthehacker/ubuntu:act-latest` (`--container-architecture linux/amd64`), montage du bundle CA du proxy dans le conteneur.
+* **Comportement :** `checkout`, `setup-python`, `pip install`, `pre-commit`, `ruff` et `pytest` réussissent comme sur GitHub.
+* **Échecs/limites en local :**
+  * `actions/upload-artifact@v4` échoue (`Unable to get the ACTIONS_RUNTIME_TOKEN env variable`) car il n'y a pas de serveur d'artefacts GitHub Actions en local (sauf en passant `--artifact-server-path`).
+  * Le cache cloud `setup-python` (`cache: "pip"`) n'est pas persisté entre conteneurs éphémères sans serveur de cache local.
+
+### 3. Questions d'observation
+* **Pourquoi le workflow se déclenche sur la PR avant d'être sur `main` ?** GitHub Actions lit le fichier `.github/workflows/ci.yml` depuis le commit de fusion virtuel (*merge commit*) de la branche source de la PR.
+* **Couverture : faut-il échouer sous un seuil ? Pourquoi pas 100 % ?** Oui via `--cov-fail-under` (ex. **80 %** pour bloquer les régressions majeures sans freiner le développement). Viser **100 %** pousse à écrire des tests artificiels sur du code trivial ou défensif au lieu de tester les vrais cas limites métiers.
+* **Matrice : combien de checks apparaissent et lesquels exiger dans le ruleset ?** **2 checks** (`test (py3.12)` et `test (py3.13)`). Il faut exiger **les deux** dans le ruleset pour garantir la compatibilité sur toutes les versions supportées.
+* **Que se passe-t-il si un admin coche « bypass » ? Qui doit l'avoir et comment est-ce tracé ?** La PR peut être fusionnée malgré un check rouge ou l'absence de revue. Ce droit doit être réservé aux **administrateurs/leads** en cas d'urgence uniquement, et il est enregistré dans l'**Audit Log** de l'organisation/dépôt ainsi que sur la PR.
+* **act remplace-t-il GitHub Actions ? Quand est-il indispensable ?** **Non**, il ne reproduit ni les règles de protection, ni les secrets/permissions cloud, ni les environnements managés complets. Il est indispensable pour **déboguer rapidement un workflow complexe en local** sans polluer l'historique de commits/PR, ou pour tester sur **runner auto-hébergé / environnement restreint**.
+* **Q1 — Durée et étape la plus coûteuse :** ~50–60s par job ; l'installation des dépendances et surtout l'initialisation des hooks `pre-commit` prennent la majorité du temps (le test `pytest` lui-même dure < 1s).
+* **Q2 — Qu'est-ce qui empêche un membre de contourner le pipeline ?** Le **ruleset** sur `main` (PR obligatoire + `required_status_checks` + suppression des droits de bypass).
+* **Q3 — Adaptations pour GitLab CI ou Gitea Actions :** pour **Gitea Actions**, quasi aucun changement (syntaxe compatible dans `.gitea/workflows/`) ; pour **GitLab CI**, réécriture complète en `.gitlab-ci.yml` (`stages`, `image`, `cache`, `artifacts`, `parallel:matrix`), en conservant exactement les mêmes étapes.

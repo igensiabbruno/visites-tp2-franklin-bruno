@@ -1,3 +1,5 @@
+[![CI](https://github.com/igensiabbruno/visites-tp2-franklin-bruno/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/igensiabbruno/visites-tp2-franklin-bruno/actions/workflows/ci.yml)
+
 # Visites — API de comptage de visites
 
 Application fil rouge du module Intro DevOps : une API FastAPI qui compte les visites dans Redis

@@ -26,3 +26,4 @@ pytest -m integration     # contre le Redis réel (REDIS_URL, défaut redis://lo
 
 ## Contribuer
 Voir [CONTRIBUTING.md](CONTRIBUTING.md).
+test

@@ -1,0 +1,4 @@
+# Empreintes des découvertes acceptées (une par ligne), telles qu'affichées par gitleaks :
+#   Fingerprint: <sha-du-commit>:app/old_settings.py:github-pat:2
+# Le SHA dépend de l'historique du dépôt du binôme : remplacer la ligne ci-dessous par la vraie empreinte.
+0000000000000000000000000000000000000000:app/old_settings.py:github-pat:2

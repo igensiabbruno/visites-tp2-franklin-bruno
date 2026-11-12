@@ -1,0 +1,7 @@
+# Les derniers motifs correspondants l'emportent
+*            @login-A @login-B
+/.github/    @login-A
+/infra/      @login-A
+/app/        @login-B
+/monitoring/ @login-B
+/docs/       @login-A @login-B

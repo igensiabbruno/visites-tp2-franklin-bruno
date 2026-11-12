@@ -35,7 +35,7 @@ async def metrics_middleware(request: Request, call_next):
 @app.get("/")
 def root(response: Response):
     n = r.incr("visites")
-    response.headers["X-Visites-Version"] = VERSION
+    response.headers["X-Visites-Version"] = "0.0.0-broken"
     return {"visites": n}
 
 
